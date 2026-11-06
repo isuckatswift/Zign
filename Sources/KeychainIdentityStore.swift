@@ -13,7 +13,89 @@ final class KeychainIdentityStore {
 
     private let labelPrefix = "com.isuckatswift.Zign.identity."
 
-    func save(identity: SecIdentity) throws -> StoredSigningIdentity {
+    // All Keychain operations are serialized on a background queue.
+    private let keychainQueue = DispatchQueue(
+        label: "com.isuckatswift.Zign.keychain",
+        qos: .userInitiated
+    )
+
+    // MARK: - Public API
+
+    func save(
+        identity: SecIdentity
+    ) async throws -> StoredSigningIdentity {
+
+        try await withCheckedThrowingContinuation { continuation in
+            keychainQueue.async {
+                do {
+                    let stored = try self.saveSynchronously(
+                        identity: identity
+                    )
+                    continuation.resume(returning: stored)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func loadAll() async throws -> [StoredSigningIdentity] {
+
+        try await withCheckedThrowingContinuation { continuation in
+            keychainQueue.async {
+                do {
+                    let identities = try self.loadAllSynchronously()
+                    continuation.resume(returning: identities)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func load(
+        identifier: String
+    ) async throws -> StoredSigningIdentity? {
+
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<StoredSigningIdentity?, Error>) in
+
+            keychainQueue.async {
+                do {
+                    let identity = try self.loadSynchronously(
+                        identifier: identifier
+                    )
+                    continuation.resume(returning: identity)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    func remove(identifier: String) async throws {
+
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, Error>) in
+
+            keychainQueue.async {
+                do {
+                    try self.removeSynchronously(identifier: identifier)
+                    continuation.resume(returning: ())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    // MARK: - Synchronous Keychain Operations
+    // These methods are only called from keychainQueue.
+
+    private func saveSynchronously(
+        identity: SecIdentity
+    ) throws -> StoredSigningIdentity {
+
         let storedIdentity = try makeStoredIdentity(identity)
 
         let query: [String: Any] = [
@@ -24,7 +106,9 @@ final class KeychainIdentityStore {
         let status = SecItemAdd(query as CFDictionary, nil)
 
         if status == errSecDuplicateItem {
-            if let existing = try load(identifier: storedIdentity.id) {
+            if let existing = try loadSynchronously(
+                identifier: storedIdentity.id
+            ) {
                 return existing
             }
         }
@@ -36,7 +120,8 @@ final class KeychainIdentityStore {
         return storedIdentity
     }
 
-    func loadAll() throws -> [StoredSigningIdentity] {
+    private func loadAllSynchronously() throws -> [StoredSigningIdentity] {
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassIdentity,
             kSecReturnRef as String: true,
@@ -58,16 +143,50 @@ final class KeychainIdentityStore {
             throw KeychainIdentityStoreError.keychainFailure(status)
         }
 
-        guard let identities = result as? [SecIdentity] else {
+        guard let result,
+              CFGetTypeID(result) == CFArrayGetTypeID(),
+              let identities = result as? [Any] else {
             throw KeychainIdentityStoreError.invalidResult
         }
 
-        return try identities.map {
-            try makeStoredIdentity($0)
+        var storedIdentities: [StoredSigningIdentity] = []
+        var seenIdentifiers = Set<String>()
+
+        for item in identities {
+
+            let itemReference = item as CFTypeRef
+
+            guard CFGetTypeID(itemReference) == SecIdentityGetTypeID() else {
+                continue
+            }
+
+            let identity = itemReference as! SecIdentity
+
+            let candidate = try makeStoredIdentity(identity)
+
+            // Only include identities that can be retrieved using
+            // Zign's own exact Keychain label.
+            guard let zignIdentity = try loadSynchronously(
+                identifier: candidate.id
+            ) else {
+                continue
+            }
+
+            guard !seenIdentifiers.contains(zignIdentity.id) else {
+                continue
+            }
+
+            seenIdentifiers.insert(zignIdentity.id)
+            storedIdentities.append(zignIdentity)
         }
+
+        return storedIdentities
     }
 
-    func load(identifier: String) throws -> StoredSigningIdentity? {
+    private func loadSynchronously(
+        identifier: String
+    ) throws -> StoredSigningIdentity? {
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassIdentity,
             kSecAttrLabel as String: labelPrefix + identifier,
@@ -90,14 +209,20 @@ final class KeychainIdentityStore {
             throw KeychainIdentityStoreError.keychainFailure(status)
         }
 
-        guard let identity = result as? SecIdentity else {
+        guard let result,
+              CFGetTypeID(result) == SecIdentityGetTypeID() else {
             throw KeychainIdentityStoreError.invalidResult
         }
+
+        let identity = result as! SecIdentity
 
         return try makeStoredIdentity(identity)
     }
 
-    func remove(identifier: String) throws {
+    private func removeSynchronously(
+        identifier: String
+    ) throws {
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassIdentity,
             kSecAttrLabel as String: labelPrefix + identifier
@@ -110,6 +235,8 @@ final class KeychainIdentityStore {
             throw KeychainIdentityStoreError.keychainFailure(status)
         }
     }
+
+    // MARK: - Identity Metadata
 
     private func makeStoredIdentity(
         _ identity: SecIdentity
@@ -147,6 +274,8 @@ final class KeychainIdentityStore {
     }
 }
 
+// MARK: - Errors
+
 enum KeychainIdentityStoreError: LocalizedError {
 
     case keychainFailure(OSStatus)
@@ -167,3 +296,4 @@ enum KeychainIdentityStoreError: LocalizedError {
         }
     }
 }
+
