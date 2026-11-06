@@ -8,6 +8,7 @@ on:
       - main
     paths:
       - "Sources/**"
+      - "Tests/**"
       - "project.yml"
       - ".github/workflows/ios.yml"
 
@@ -16,7 +17,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Zign
+    name: Build and Test Zign
     runs-on: macos-15
 
     steps:
@@ -47,6 +48,30 @@ jobs:
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Find available iPhone simulator
+        id: simulator
+        run: |
+          SIMULATOR_ID=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')
+
+          if [ -z "$SIMULATOR_ID" ]; then
+            echo "No available iPhone simulator was found."
+            exit 1
+          fi
+
+          echo "id=$SIMULATOR_ID" >> "$GITHUB_OUTPUT"
+          echo "Using simulator: $SIMULATOR_ID"
+
+      - name: Run provisioning profile parser tests
+        run: |
+          xcodebuild \
+            -project Zign.xcodeproj \
+            -scheme Zign \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}" \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            test
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
