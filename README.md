@@ -1,5 +1,9 @@
 # Zign
 
+<p align="center">
+  <img src="zign-banner.png" alt="Zign banner" width="100%">
+</p>
+
 A native iOS IPA signing and management toolkit.
 
 Zign (Zenith Sign) is an open-source iOS application project focused on IPA inspection, code signing, certificate management, and provisioning profile management.
