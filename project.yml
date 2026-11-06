@@ -1,3 +1,4 @@
+
 name: Zign
 
 options:
@@ -10,6 +11,14 @@ packages:
   ZIPFoundation:
     url: https://github.com/weichsel/ZIPFoundation
     from: "0.9.19"
+
+  swift-certificates:
+    url: https://github.com/apple/swift-certificates
+    exactVersion: "1.21.1"
+
+  swift-asn1:
+    url: https://github.com/apple/swift-asn1
+    from: "1.1.0"
 
 settings:
   base:
@@ -29,6 +38,10 @@ targets:
     dependencies:
       - package: ZIPFoundation
         product: ZIPFoundation
+      - package: swift-certificates
+        product: X509
+      - package: swift-asn1
+        product: SwiftASN1
     settings:
       base:
         PRODUCT_NAME: Zign
@@ -42,6 +55,8 @@ targets:
       - path: Tests
     dependencies:
       - target: Zign
+      - package: swift-certificates
+        product: X509
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.isuckatswift.ZignTests
