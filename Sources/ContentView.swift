@@ -17,7 +17,7 @@ struct ContentView: View {
                     Label("Inspect", systemImage: "doc.text.magnifyingglass")
                 }
 
-            CertificatesView()
+            CertificateManagerView()
                 .tabItem {
                     Label("Certificates", systemImage: "checkmark.seal")
                 }
