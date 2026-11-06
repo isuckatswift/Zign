@@ -1,25 +1,35 @@
-
 import Foundation
 import Security
 import SwiftUI
 
-struct ImportedCertificate: Identifiable {
-    let id = UUID()
-    let identity: SecIdentity
-    let displayName: String
-}
-
 @MainActor
 final class CertificateStore: ObservableObject {
-    @Published private(set) var certificates: [ImportedCertificate] = []
+    @Published private(set) var certificates: [StoredSigningIdentity] = []
+    @Published private(set) var isLoading = false
 
-    func importPKCS12(from url: URL, password: String) throws {
+    private let keychainStore = KeychainIdentityStore()
+
+    func loadCertificates() async throws {
+        isLoading = true
+        defer { isLoading = false }
+
+        certificates = try await keychainStore.loadAll()
+    }
+
+    func importPKCS12(
+        from url: URL,
+        password: String
+    ) async throws {
         let hasAccess = url.startAccessingSecurityScopedResource()
 
         defer {
             if hasAccess {
                 url.stopAccessingSecurityScopedResource()
             }
+        }
+
+        guard hasAccess else {
+            throw CertificateStoreError.accessDenied
         }
 
         let data = try Data(contentsOf: url)
@@ -45,51 +55,43 @@ final class CertificateStore: ObservableObject {
             let firstItem = items.first,
             let identityValue = firstItem[
                 kSecImportItemIdentity as String
-            ]
+            ],
+            CFGetTypeID(identityValue as CFTypeRef)
+                == SecIdentityGetTypeID()
         else {
             throw CertificateStoreError.identityNotFound
         }
 
         let identity = identityValue as! SecIdentity
 
-        var certificate: SecCertificate?
-
-        let certificateStatus = SecIdentityCopyCertificate(
-            identity,
-            &certificate
+        let storedIdentity = try await keychainStore.save(
+            identity: identity
         )
 
-        guard
-            certificateStatus == errSecSuccess,
-            let certificate
-        else {
-            throw CertificateStoreError.certificateNotFound
+        if !certificates.contains(where: { $0.id == storedIdentity.id }) {
+            certificates.append(storedIdentity)
         }
-
-        let displayName =
-            SecCertificateCopySubjectSummary(certificate) as String?
-            ?? url.deletingPathExtension().lastPathComponent
-
-        certificates.append(
-            ImportedCertificate(
-                identity: identity,
-                displayName: displayName
-            )
-        )
     }
 
-    func remove(_ certificate: ImportedCertificate) {
-        certificates.removeAll { $0.id == certificate.id }
+    func remove(_ certificate: StoredSigningIdentity) async throws {
+        try await keychainStore.remove(identifier: certificate.id)
+
+        certificates.removeAll {
+            $0.id == certificate.id
+        }
     }
 }
 
 enum CertificateStoreError: LocalizedError {
+    case accessDenied
     case importFailed(OSStatus)
     case identityNotFound
-    case certificateNotFound
 
     var errorDescription: String? {
         switch self {
+        case .accessDenied:
+            return "Zign could not access the selected certificate file."
+
         case .importFailed(let status):
             if status == errSecAuthFailed {
                 return "The certificate password is incorrect or the file is invalid."
@@ -98,10 +100,7 @@ enum CertificateStoreError: LocalizedError {
             return "Certificate import failed. Security error: \(status)."
 
         case .identityNotFound:
-            return "No signing identity was found in this PKCS#12 file."
-
-        case .certificateNotFound:
-            return "The certificate could not be read from the signing identity."
+            return "No valid signing identity was found in this PKCS#12 file."
         }
     }
 }
