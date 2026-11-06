@@ -1,4 +1,3 @@
-
 name: Zign iOS Build
 
 on:
@@ -38,18 +37,6 @@ jobs:
         run: |
           xcodegen generate
 
-      - name: Build for iOS Simulator
-        run: |
-          xcodebuild \
-            -project Zign.xcodeproj \
-            -scheme Zign \
-            -sdk iphonesimulator \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-
       - name: Find available iPhone simulator
         id: simulator
         run: |
@@ -63,8 +50,10 @@ jobs:
           echo "id=$SIMULATOR_ID" >> "$GITHUB_OUTPUT"
           echo "Using simulator: $SIMULATOR_ID"
 
-      - name: Run provisioning profile parser tests
+      - name: Build and run tests on iPhone Simulator
         run: |
+          rm -rf build/DerivedData
+
           xcodebuild \
             -project Zign.xcodeproj \
             -scheme Zign \
@@ -81,3 +70,4 @@ jobs:
           path: build/DerivedData/Build/Products/Debug-iphonesimulator/Zign.app
           if-no-files-found: error
           retention-days: 7
+          
