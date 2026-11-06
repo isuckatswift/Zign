@@ -17,7 +17,7 @@ struct ImportedProvisioningProfile: Identifiable {
     let developerCertificateCount: Int
 }
 
-enum ProvisioningProfileError: LocalizedError {
+enum ProvisioningProfileError: LocalizedError, Equatable {
     case fileTooLarge
     case invalidCMS
     case missingContent
@@ -120,8 +120,6 @@ enum ProvisioningProfileParser {
         while true {
             let remainingCapacity = maximumFileSize - result.count
 
-            // Read at most one byte beyond the limit so oversized files
-            // are detected without loading the entire file into memory.
             let requestedCount = min(
                 readChunkSize,
                 remainingCapacity + 1
