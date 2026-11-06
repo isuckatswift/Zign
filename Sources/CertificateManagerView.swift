@@ -4,16 +4,21 @@ import UniformTypeIdentifiers
 
 struct CertificateManagerView: View {
     @StateObject private var store = CertificateStore()
-
     @State private var profiles: [ImportedProvisioningProfile] = []
 
     @State private var isImporting = false
+    @State private var importKind: ImportKind = .certificate
     @State private var showPasswordPrompt = false
     @State private var selectedFile: URL?
     @State private var password = ""
 
     @State private var alertTitle = "Import"
     @State private var alertMessage: String?
+
+    private enum ImportKind {
+        case certificate
+        case profile
+    }
 
     private var p12Type: UTType {
         UTType(filenameExtension: "p12", conformingTo: .data) ?? .data
@@ -25,6 +30,15 @@ struct CertificateManagerView: View {
 
     private var profileType: UTType {
         UTType(filenameExtension: "mobileprovision", conformingTo: .data) ?? .data
+    }
+
+    private var allowedTypes: [UTType] {
+        switch importKind {
+        case .certificate:
+            return [p12Type, pfxType]
+        case .profile:
+            return [profileType]
+        }
     }
 
     var body: some View {
@@ -40,6 +54,7 @@ struct CertificateManagerView: View {
                     }
 
                     Button {
+                        importKind = .certificate
                         isImporting = true
                     } label: {
                         Label("Import Certificate", systemImage: "plus")
@@ -52,27 +67,24 @@ struct CertificateManagerView: View {
                     }
 
                     Button {
+                        importKind = .profile
                         isImporting = true
                     } label: {
                         Label("Import Provisioning Profile", systemImage: "doc.badge.plus")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .padding(.vertical, 2)
                             .background(Color(uiColor: .secondarySystemBackground))
                             .foregroundStyle(.primary)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
 
                     certificateSection
-
                     profileSection
 
-                    Text(
-                        "Signing identities are currently stored in memory. Provisioning profile metadata is also temporary and will not survive an app restart."
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text("Certificate identities and profile metadata are currently stored in memory and will not survive an app restart.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 .padding()
             }
@@ -80,7 +92,7 @@ struct CertificateManagerView: View {
             .navigationTitle("Certificates")
             .fileImporter(
                 isPresented: $isImporting,
-                allowedContentTypes: [p12Type, pfxType, profileType],
+                allowedContentTypes: allowedTypes,
                 allowsMultipleSelection: false
             ) { result in
                 handleFileImport(result)
@@ -109,9 +121,7 @@ struct CertificateManagerView: View {
             HStack {
                 Text("Imported Certificates")
                     .font(.title2.bold())
-
                 Spacer()
-
                 Text("\(store.certificates.count)")
                     .foregroundStyle(.secondary)
             }
@@ -167,9 +177,7 @@ struct CertificateManagerView: View {
             HStack {
                 Text("Provisioning Profiles")
                     .font(.title2.bold())
-
                 Spacer()
-
                 Text("\(profiles.count)")
                     .foregroundStyle(.secondary)
             }
@@ -221,25 +229,10 @@ struct CertificateManagerView: View {
 
             Divider()
 
-            profileDetail(
-                "Team",
-                value: profile.teamIdentifier ?? "Unavailable"
-            )
-
-            profileDetail(
-                "Application ID",
-                value: profile.applicationIdentifier ?? "Unavailable"
-            )
-
-            profileDetail(
-                "Created",
-                value: formattedDate(profile.creationDate)
-            )
-
-            profileDetail(
-                "Expires",
-                value: formattedDate(profile.expirationDate)
-            )
+            profileDetail("Team", value: profile.teamIdentifier ?? "Unavailable")
+            profileDetail("Application ID", value: profile.applicationIdentifier ?? "Unavailable")
+            profileDetail("Created", value: formattedDate(profile.creationDate))
+            profileDetail("Expires", value: formattedDate(profile.expirationDate))
 
             profileDetail(
                 "Devices",
@@ -262,24 +255,21 @@ struct CertificateManagerView: View {
 
             profileDetail(
                 "Get-task-allow",
-                value: profile.getTaskAllowed.map { $0 ? "Enabled" : "Disabled" }
-                    ?? "Unavailable"
+                value: profile.getTaskAllowed.map {
+                    $0 ? "Enabled" : "Disabled"
+                } ?? "Unavailable"
             )
 
             Text("Metadata extracted only — CMS signature not verified.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(.top, 4)
         }
         .padding()
         .background(Color(uiColor: .secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    private func profileDetail(
-        _ title: String,
-        value: String
-    ) -> some View {
+    private func profileDetail(_ title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.caption)
@@ -304,10 +294,8 @@ struct CertificateManagerView: View {
         NavigationStack {
             Form {
                 Section("Selected Certificate") {
-                    Text(
-                        selectedFile?.lastPathComponent ?? "No file selected"
-                    )
-                    .font(.subheadline)
+                    Text(selectedFile?.lastPathComponent ?? "No file selected")
+                        .font(.subheadline)
                 }
 
                 Section("Certificate Password") {
@@ -337,21 +325,21 @@ struct CertificateManagerView: View {
         }
     }
 
-    private func handleFileImport(
-        _ result: Result<[URL], Error>
-    ) {
+    private func handleFileImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let url = urls.first else {
                 return
             }
 
-            if url.pathExtension.lowercased() == "mobileprovision" {
-                importProfile(from: url)
-            } else {
+            switch importKind {
+            case .certificate:
                 selectedFile = url
                 password = ""
                 showPasswordPrompt = true
+
+            case .profile:
+                importProfile(from: url)
             }
 
         case .failure(let error):
@@ -365,11 +353,7 @@ struct CertificateManagerView: View {
             profiles.append(profile)
 
             alertTitle = "Profile Imported"
-            alertMessage = """
-            Profile metadata was extracted successfully.
-
-            The CMS signature has not been verified.
-            """
+            alertMessage = "Profile metadata extracted. The CMS signature has not been verified."
         } catch {
             showError(error.localizedDescription)
         }
@@ -385,7 +369,6 @@ struct CertificateManagerView: View {
                 from: selectedFile,
                 password: password
             )
-
             closePasswordPrompt()
         } catch {
             showError(error.localizedDescription)
