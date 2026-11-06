@@ -1,0 +1,29 @@
+
+name: Zign
+
+options:
+  bundleIdPrefix: com.isuckatswift
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_CFBundleDisplayName: Zign
+    INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+    PRODUCT_BUNDLE_IDENTIFIER: com.isuckatswift.Zign
+
+targets:
+  Zign:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_NAME: Zign
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ENABLE_PREVIEWS: YES
