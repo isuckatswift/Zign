@@ -4,8 +4,9 @@ name: Zign iOS Build
 on:
   workflow_dispatch:
   push:
-    branches:
+        branches:
       - main
+      - experiment/swift-certificates-cms
     paths:
       - "Sources/**"
       - "Tests/**"
