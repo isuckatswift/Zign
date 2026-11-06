@@ -1,3 +1,4 @@
+
 name: Zign
 
 options:
@@ -33,6 +34,8 @@ targets:
     dependencies:
       - package: ZIPFoundation
         product: ZIPFoundation
+      - package: swift-certificates
+        product: X509
     settings:
       base:
         PRODUCT_NAME: Zign
