@@ -48,6 +48,9 @@ private struct DERTLV {
 
 enum ProvisioningProfileParser {
 
+    private static let maximumFileSize = 10 * 1024 * 1024
+    private static let readChunkSize = 64 * 1024
+
     private static let signedDataOID = Data([
         0x2A, 0x86, 0x48, 0x86, 0xF7,
         0x0D, 0x01, 0x07, 0x02
@@ -64,14 +67,14 @@ enum ProvisioningProfileParser {
 
         let values = try url.resourceValues(forKeys: [.fileSizeKey])
 
-        if let size = values.fileSize, size > 10 * 1024 * 1024 {
+        if let size = values.fileSize, size > maximumFileSize {
             throw ProvisioningProfileError.fileTooLarge
         }
 
-        let data = try Data(contentsOf: url)
+        let data = try readBoundedFile(from: url)
 
-        guard !data.isEmpty, data.count <= 10 * 1024 * 1024 else {
-            throw ProvisioningProfileError.fileTooLarge
+        guard !data.isEmpty else {
+            throw ProvisioningProfileError.invalidCMS
         }
 
         let plistData = try extractCMSContent(from: data)
@@ -104,6 +107,39 @@ enum ProvisioningProfileParser {
             platforms: platforms,
             developerCertificateCount: certificates.count
         )
+    }
+
+    private static func readBoundedFile(from url: URL) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer {
+            try? handle.close()
+        }
+
+        var result = Data()
+
+        while true {
+            let remainingCapacity = maximumFileSize - result.count
+
+            // Read at most one byte beyond the limit so oversized files
+            // are detected without loading the entire file into memory.
+            let requestedCount = min(
+                readChunkSize,
+                remainingCapacity + 1
+            )
+
+            guard let chunk = try handle.read(upToCount: requestedCount),
+                  !chunk.isEmpty else {
+                break
+            }
+
+            guard chunk.count <= remainingCapacity else {
+                throw ProvisioningProfileError.fileTooLarge
+            }
+
+            result.append(chunk)
+        }
+
+        return result
     }
 
     private static func extractCMSContent(from data: Data) throws -> Data {
