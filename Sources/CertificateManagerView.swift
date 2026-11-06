@@ -81,6 +81,7 @@ struct CertificateManagerView: View {
 
                     certificateSection
                     profileSection
+                    failedProfileSection
 
                     Text("Signing identities are stored in the device Keychain. Provisioning profile files are stored locally in the app's Application Support directory. CMS signatures are not yet verified.")
                         .font(.caption)
@@ -121,6 +122,55 @@ struct CertificateManagerView: View {
     }
 
     // MARK: - Certificates
+    // MARK: - Failed Profile Loading
+
+private var failedProfileSection: some View {
+    Group {
+        if !profileStore.failedProfiles.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(
+                    "Profiles Could Not Be Loaded",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.headline)
+                .foregroundStyle(.orange)
+
+                Text(
+                    "\(profileStore.failedProfiles.count) saved profile(s) could not be loaded. Other valid profiles remain available."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+                ForEach(
+                    Array(profileStore.failedProfiles.enumerated()),
+                    id: \.offset
+                ) { _, failure in
+                    Text(failure)
+                        .font(.caption)
+                        .textSelection(.enabled)
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
+                        .padding(10)
+                        .background(
+                            Color(uiColor: .tertiarySystemBackground)
+                        )
+                        .clipShape(
+                            RoundedRectangle(cornerRadius: 10)
+                        )
+                }
+            }
+            .padding()
+            .background(
+                Color.orange.opacity(0.08)
+            )
+            .clipShape(
+                RoundedRectangle(cornerRadius: 14)
+            )
+        }
+    }
+}
 
     private var certificateSection: some View {
         VStack(alignment: .leading, spacing: 12) {
