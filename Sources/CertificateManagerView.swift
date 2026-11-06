@@ -1,4 +1,3 @@
-
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -82,7 +81,7 @@ struct CertificateManagerView: View {
                     certificateSection
                     profileSection
 
-                    Text("Certificate identities and profile metadata are currently stored in memory and will not survive an app restart.")
+                    Text("Signing identities are stored in the device Keychain. Provisioning profile metadata is currently held in memory and will not survive an app restart.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -90,6 +89,9 @@ struct CertificateManagerView: View {
             }
             .background(Color(uiColor: .systemBackground))
             .navigationTitle("Certificates")
+            .task {
+                await loadCertificates()
+            }
             .fileImporter(
                 isPresented: $isImporting,
                 allowedContentTypes: allowedTypes,
@@ -121,12 +123,18 @@ struct CertificateManagerView: View {
             HStack {
                 Text("Imported Certificates")
                     .font(.title2.bold())
+
                 Spacer()
+
                 Text("\(store.certificates.count)")
                     .foregroundStyle(.secondary)
             }
 
-            if store.certificates.isEmpty {
+            if store.isLoading {
+                ProgressView("Loading certificates...")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            } else if store.certificates.isEmpty {
                 ContentUnavailableView(
                     "No Certificates",
                     systemImage: "checkmark.seal",
@@ -156,7 +164,9 @@ struct CertificateManagerView: View {
                         Spacer()
 
                         Button(role: .destructive) {
-                            store.remove(certificate)
+                            Task {
+                                await removeCertificate(certificate)
+                            }
                         } label: {
                             Image(systemName: "trash")
                                 .foregroundStyle(.red)
@@ -177,7 +187,9 @@ struct CertificateManagerView: View {
             HStack {
                 Text("Provisioning Profiles")
                     .font(.title2.bold())
+
                 Spacer()
+
                 Text("\(profiles.count)")
                     .foregroundStyle(.secondary)
             }
@@ -325,6 +337,24 @@ struct CertificateManagerView: View {
         }
     }
 
+    private func loadCertificates() async {
+        do {
+            try await store.loadCertificates()
+        } catch {
+            showError(error.localizedDescription)
+        }
+    }
+
+    private func removeCertificate(
+        _ certificate: StoredSigningIdentity
+    ) async {
+        do {
+            try await store.remove(certificate)
+        } catch {
+            showError(error.localizedDescription)
+        }
+    }
+
     private func handleFileImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
@@ -364,14 +394,22 @@ struct CertificateManagerView: View {
             return
         }
 
-        do {
-            try store.importPKCS12(
-                from: selectedFile,
-                password: password
-            )
-            closePasswordPrompt()
-        } catch {
-            showError(error.localizedDescription)
+        let file = selectedFile
+        let enteredPassword = password
+
+        Task {
+            do {
+                try await store.importPKCS12(
+                    from: file,
+                    password: enteredPassword
+                )
+
+                closePasswordPrompt()
+                alertTitle = "Certificate Imported"
+                alertMessage = "The signing identity was saved to the device Keychain."
+            } catch {
+                showError(error.localizedDescription)
+            }
         }
     }
 
