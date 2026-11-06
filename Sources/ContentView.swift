@@ -200,21 +200,6 @@ struct InspectorView: View {
                             }
                         }
                     }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Inspection")
-                            .font(.title2.bold())
-
-                        Text(
-                            "Package metadata inspection will be added in the next development phase."
-                        )
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(uiColor: .secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
                 .padding()
             }
@@ -261,24 +246,36 @@ struct IPAFileRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "doc.zipper")
-                .font(.title2)
-                .frame(width: 44, height: 44)
-                .background(Color(uiColor: .tertiarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+        HStack(spacing: 8) {
+            NavigationLink {
+                IPAInspectionView(file: file)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "doc.zipper")
+                        .font(.title2)
+                        .frame(width: 44, height: 44)
+                        .background(Color(uiColor: .tertiarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(file.name)
-                    .font(.headline)
-                    .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(file.name)
+                            .font(.headline)
+                            .lineLimit(1)
 
-                Text(file.formattedSize)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                        Text(file.formattedSize)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
             }
-
-            Spacer()
+            .buttonStyle(.plain)
 
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "trash")
