@@ -11,6 +11,10 @@ packages:
     url: https://github.com/weichsel/ZIPFoundation
     from: "0.9.19"
 
+  swift-certificates:
+    url: https://github.com/apple/swift-certificates
+    exactVersion: "1.21.1"
+
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -42,6 +46,8 @@ targets:
       - path: Tests
     dependencies:
       - target: Zign
+      - package: swift-certificates
+        product: X509
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.isuckatswift.ZignTests
