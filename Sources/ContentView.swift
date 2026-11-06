@@ -83,7 +83,7 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
 
-                        NavigationLink(destination: CertificatesView()) {
+                        NavigationLink(destination: CertificateManagerView()) {
                             QuickActionRow(
                                 title: "Manage Certificates",
                                 subtitle: "Manage signing credentials",
