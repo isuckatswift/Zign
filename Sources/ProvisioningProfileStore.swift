@@ -6,6 +6,7 @@ import Combine
 final class ProvisioningProfileStore: ObservableObject {
 
     @Published private(set) var profiles: [ImportedProvisioningProfile] = []
+    @Published private(set) var failedProfiles: [String] = []
 
     private let directoryName = "ProvisioningProfiles"
 
@@ -33,16 +34,36 @@ final class ProvisioningProfileStore: ObservableObject {
         )
 
         var loadedProfiles: [ImportedProvisioningProfile] = []
+        var failedFiles: [String] = []
 
         for file in files where file.pathExtension == "mobileprovision" {
-            let profile = try ProvisioningProfileParser.parse(from: file)
-            loadedProfiles.append(profile)
+            do {
+                let values = try file.resourceValues(
+                    forKeys: [.isRegularFileKey]
+                )
+
+                guard values.isRegularFile == true else {
+                    failedFiles.append(
+                        "\(file.lastPathComponent): Not a regular file."
+                    )
+                    continue
+                }
+
+                let profile = try ProvisioningProfileParser.parse(from: file)
+                loadedProfiles.append(profile)
+            } catch {
+                failedFiles.append(
+                    "\(file.lastPathComponent): \(error.localizedDescription)"
+                )
+            }
         }
 
         profiles = loadedProfiles.sorted {
             $0.name.localizedCaseInsensitiveCompare($1.name)
                 == .orderedAscending
         }
+
+        failedProfiles = failedFiles
     }
 
     // MARK: - Importing
@@ -74,6 +95,9 @@ final class ProvisioningProfileStore: ObservableObject {
             )
 
             profiles.append(profile)
+            failedProfiles.removeAll {
+                $0.hasPrefix("\(storedFilename):")
+            }
         } catch {
             try? FileManager.default.removeItem(at: destinationURL)
             throw error
