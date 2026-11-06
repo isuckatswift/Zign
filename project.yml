@@ -34,3 +34,17 @@ targets:
         PRODUCT_NAME: Zign
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         ENABLE_PREVIEWS: YES
+
+  ZignTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Zign
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.isuckatswift.ZignTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Zign.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Zign"
+        BUNDLE_LOADER: "$(TEST_HOST)"
