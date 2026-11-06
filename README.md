@@ -78,8 +78,6 @@ Please report security vulnerabilities responsibly rather than publishing sensit
 
 This project is licensed under the MIT License.
 
-⸻
-
 ## Zign — Zenith Sign
 
 An independent approach to iOS application signing.
