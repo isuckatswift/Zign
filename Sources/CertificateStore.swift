@@ -1,3 +1,4 @@
+
 import Foundation
 import Security
 import SwiftUI
@@ -8,6 +9,11 @@ final class CertificateStore: ObservableObject {
     @Published private(set) var isLoading = false
 
     private let keychainStore = KeychainIdentityStore()
+
+    private let importQueue = DispatchQueue(
+        label: "com.isuckatswift.Zign.certificate-import",
+        qos: .userInitiated
+    )
 
     func loadCertificates() async throws {
         isLoading = true
@@ -32,43 +38,57 @@ final class CertificateStore: ObservableObject {
             throw CertificateStoreError.accessDenied
         }
 
-        let data = try Data(contentsOf: url)
+        let identity = try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<SecIdentity, Error>) in
 
-        let options = [
-            kSecImportExportPassphrase as String: password
-        ] as CFDictionary
+            importQueue.async {
+                do {
+                    let data = try Data(contentsOf: url)
 
-        var importedItems: CFArray?
+                    let options = [
+                        kSecImportExportPassphrase as String: password
+                    ] as CFDictionary
 
-        let status = SecPKCS12Import(
-            data as CFData,
-            options,
-            &importedItems
-        )
+                    var importedItems: CFArray?
 
-        guard status == errSecSuccess else {
-            throw CertificateStoreError.importFailed(status)
+                    let status = SecPKCS12Import(
+                        data as CFData,
+                        options,
+                        &importedItems
+                    )
+
+                    guard status == errSecSuccess else {
+                        throw CertificateStoreError.importFailed(status)
+                    }
+
+                    guard
+                        let items = importedItems as? [[String: Any]],
+                        let firstItem = items.first,
+                        let identityValue = firstItem[
+                            kSecImportItemIdentity as String
+                        ],
+                        CFGetTypeID(identityValue as CFTypeRef)
+                            == SecIdentityGetTypeID()
+                    else {
+                        throw CertificateStoreError.identityNotFound
+                    }
+
+                    let identity = identityValue as! SecIdentity
+                    continuation.resume(returning: identity)
+
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
-
-        guard
-            let items = importedItems as? [[String: Any]],
-            let firstItem = items.first,
-            let identityValue = firstItem[
-                kSecImportItemIdentity as String
-            ],
-            CFGetTypeID(identityValue as CFTypeRef)
-                == SecIdentityGetTypeID()
-        else {
-            throw CertificateStoreError.identityNotFound
-        }
-
-        let identity = identityValue as! SecIdentity
 
         let storedIdentity = try await keychainStore.save(
             identity: identity
         )
 
-        if !certificates.contains(where: { $0.id == storedIdentity.id }) {
+        if !certificates.contains(where: {
+            $0.id == storedIdentity.id
+        }) {
             certificates.append(storedIdentity)
         }
     }
