@@ -1,8 +1,5 @@
 # Zign
 
-<p align="center">
-  <img src="zign-banner.png" alt="Zign banner" width="100%">
-</p>
 
 A native iOS IPA signing and management toolkit.
 
