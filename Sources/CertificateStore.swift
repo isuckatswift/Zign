@@ -43,12 +43,14 @@ final class CertificateStore: ObservableObject {
         guard
             let items = importedItems as? [[String: Any]],
             let firstItem = items.first,
-            let identity = firstItem[
+            let identityValue = firstItem[
                 kSecImportItemIdentity as String
-            ] as? SecIdentity
+            ]
         else {
             throw CertificateStoreError.identityNotFound
         }
+
+        let identity = identityValue as! SecIdentity
 
         var certificate: SecCertificate?
 
