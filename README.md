@@ -48,11 +48,19 @@ Actual signing and installation capabilities depend on Apple’s code-signing re
 
 Zign does not promise unrestricted IPA installation or bypass of Apple’s platform security.
 
-## Development Status
+## Development Roadmap
 
-Early development
-
-Zign is currently in its initial development stage. Features listed above represent project goals and are not necessarily implemented yet.
+| Phase | Feature | Status |
+|---|---|---|
+| 1 | Project setup and architecture | In progress |
+| 2 | IPA importing and inspection | Planned |
+| 3 | Certificate management | Planned |
+| 4 | Provisioning profile inspection | Planned |
+| 5 | Entitlements analysis | Planned |
+| 6 | IPA signing engine | Planned |
+| 7 | Signed IPA export | Planned |
+| 8 | Signing history | Planned |
+| 9 | Testing and optimization | Planned |
 
 ## Security
 
