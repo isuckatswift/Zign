@@ -1,5 +1,6 @@
 
 import Foundation
+import Combine
 
 @MainActor
 final class ProvisioningProfileStore: ObservableObject {
@@ -58,7 +59,6 @@ final class ProvisioningProfileStore: ObservableObject {
         try createStorageDirectory()
 
         let storedFilename = UUID().uuidString + ".mobileprovision"
-
         let destinationURL = storageDirectory.appendingPathComponent(
             storedFilename
         )
@@ -89,23 +89,18 @@ final class ProvisioningProfileStore: ObservableObject {
             options: [.skipsHiddenFiles]
         )
 
-        for file in files where file.pathExtension == "mobileprovision" {
-            let storedProfile = try ProvisioningProfileParser.parse(
-                from: file
-            )
-
-            if storedProfile.uuid == profile.uuid {
-                try FileManager.default.removeItem(at: file)
-
-                profiles.removeAll {
-                    $0.uuid == profile.uuid
-                }
-
-                return
-            }
+        guard let file = files.first(where: {
+            $0.lastPathComponent == profile.filename &&
+            $0.pathExtension == "mobileprovision"
+        }) else {
+            throw ProvisioningProfileStoreError.profileNotFound
         }
 
-        throw ProvisioningProfileStoreError.profileNotFound
+        try FileManager.default.removeItem(at: file)
+
+        profiles.removeAll {
+            $0.filename == profile.filename
+        }
     }
 
     // MARK: - Storage
