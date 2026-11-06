@@ -2,7 +2,7 @@
 import Foundation
 import ZIPFoundation
 
-struct IPAInspection {
+struct IPAInspection: Sendable {
     let appName: String
     let bundleIdentifier: String
     let version: String
