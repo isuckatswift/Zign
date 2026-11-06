@@ -1,9 +1,10 @@
+
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct CertificateManagerView: View {
     @StateObject private var store = CertificateStore()
-    @State private var profiles: [ImportedProvisioningProfile] = []
+    @StateObject private var profileStore = ProvisioningProfileStore()
 
     @State private var isImporting = false
     @State private var importKind: ImportKind = .certificate
@@ -81,7 +82,7 @@ struct CertificateManagerView: View {
                     certificateSection
                     profileSection
 
-                    Text("Signing identities are stored in the device Keychain. Provisioning profile metadata is currently held in memory and will not survive an app restart.")
+                    Text("Signing identities are stored in the device Keychain. Provisioning profile files are stored locally in the app's Application Support directory. CMS signatures are not yet verified.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -91,6 +92,7 @@ struct CertificateManagerView: View {
             .navigationTitle("Certificates")
             .task {
                 await loadCertificates()
+                loadProfiles()
             }
             .fileImporter(
                 isPresented: $isImporting,
@@ -117,6 +119,8 @@ struct CertificateManagerView: View {
             }
         }
     }
+
+    // MARK: - Certificates
 
     private var certificateSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -182,6 +186,8 @@ struct CertificateManagerView: View {
         }
     }
 
+    // MARK: - Provisioning Profiles
+
     private var profileSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -190,11 +196,11 @@ struct CertificateManagerView: View {
 
                 Spacer()
 
-                Text("\(profiles.count)")
+                Text("\(profileStore.profiles.count)")
                     .foregroundStyle(.secondary)
             }
 
-            if profiles.isEmpty {
+            if profileStore.profiles.isEmpty {
                 ContentUnavailableView(
                     "No Profiles",
                     systemImage: "doc.text",
@@ -202,7 +208,7 @@ struct CertificateManagerView: View {
                 )
                 .padding(.vertical, 12)
             } else {
-                ForEach(profiles) { profile in
+                ForEach(profileStore.profiles) { profile in
                     profileCard(profile)
                 }
             }
@@ -231,7 +237,7 @@ struct CertificateManagerView: View {
                 Spacer()
 
                 Button(role: .destructive) {
-                    profiles.removeAll { $0.id == profile.id }
+                    removeProfile(profile)
                 } label: {
                     Image(systemName: "trash")
                         .foregroundStyle(.red)
@@ -302,6 +308,8 @@ struct CertificateManagerView: View {
         return date.formatted(date: .abbreviated, time: .omitted)
     }
 
+    // MARK: - Password Sheet
+
     private var passwordSheet: some View {
         NavigationStack {
             Form {
@@ -337,6 +345,8 @@ struct CertificateManagerView: View {
         }
     }
 
+    // MARK: - Loading
+
     private func loadCertificates() async {
         do {
             try await store.loadCertificates()
@@ -344,6 +354,16 @@ struct CertificateManagerView: View {
             showError(error.localizedDescription)
         }
     }
+
+    private func loadProfiles() {
+        do {
+            try profileStore.loadProfiles()
+        } catch {
+            showError(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Removal
 
     private func removeCertificate(
         _ certificate: StoredSigningIdentity
@@ -354,6 +374,18 @@ struct CertificateManagerView: View {
             showError(error.localizedDescription)
         }
     }
+
+    private func removeProfile(
+        _ profile: ImportedProvisioningProfile
+    ) {
+        do {
+            try profileStore.removeProfile(profile)
+        } catch {
+            showError(error.localizedDescription)
+        }
+    }
+
+    // MARK: - File Import
 
     private func handleFileImport(_ result: Result<[URL], Error>) {
         switch result {
@@ -379,11 +411,10 @@ struct CertificateManagerView: View {
 
     private func importProfile(from url: URL) {
         do {
-            let profile = try ProvisioningProfileParser.parse(from: url)
-            profiles.append(profile)
+            try profileStore.importProfile(from: url)
 
             alertTitle = "Profile Imported"
-            alertMessage = "Profile metadata extracted. The CMS signature has not been verified."
+            alertMessage = "The provisioning profile was saved locally. Its CMS signature has not been verified."
         } catch {
             showError(error.localizedDescription)
         }
@@ -412,6 +443,8 @@ struct CertificateManagerView: View {
             }
         }
     }
+
+    // MARK: - Helpers
 
     private func closePasswordPrompt() {
         showPasswordPrompt = false
