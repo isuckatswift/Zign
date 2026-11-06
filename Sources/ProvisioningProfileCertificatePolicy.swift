@@ -1,4 +1,5 @@
 
+import SwiftASN1
 import X509
 
 struct ProvisioningProfileCertificatePolicy: VerifierPolicy {
