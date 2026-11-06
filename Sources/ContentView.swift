@@ -1,15 +1,18 @@
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
+    @StateObject private var ipaStore = IPAFileStore()
+
     var body: some View {
         TabView {
-            HomeView()
+            HomeView(store: ipaStore)
                 .tabItem {
                     Label("Home", systemImage: "house")
                 }
 
-            InspectorView()
+            InspectorView(store: ipaStore)
                 .tabItem {
                     Label("Inspect", systemImage: "doc.text.magnifyingglass")
                 }
@@ -37,6 +40,8 @@ struct ContentView: View {
 // MARK: - Home
 
 struct HomeView: View {
+    @ObservedObject var store: IPAFileStore
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -52,7 +57,7 @@ struct HomeView: View {
                     HStack(spacing: 12) {
                         DashboardCard(
                             title: "IPA Files",
-                            value: "0",
+                            value: "\(store.files.count)",
                             symbol: "doc.zipper"
                         )
 
@@ -67,10 +72,12 @@ struct HomeView: View {
                         Text("Quick Actions")
                             .font(.title2.bold())
 
-                        NavigationLink(destination: InspectorView()) {
+                        NavigationLink {
+                            InspectorView(store: store)
+                        } label: {
                             QuickActionRow(
                                 title: "Inspect IPA",
-                                subtitle: "View application package information",
+                                subtitle: "Import and manage application packages",
                                 symbol: "doc.text.magnifyingglass"
                             )
                         }
@@ -99,7 +106,7 @@ struct HomeView: View {
                         Text("Development Status")
                             .font(.title2.bold())
 
-                        Text("Zign is under active development.")
+                        Text("IPA importing is now being implemented.")
                             .foregroundStyle(.secondary)
 
                         Text("Signing functionality is not yet available.")
@@ -114,7 +121,7 @@ struct HomeView: View {
                 .padding()
             }
             .background(Color(uiColor: .systemBackground))
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 }
@@ -122,30 +129,167 @@ struct HomeView: View {
 // MARK: - Inspector
 
 struct InspectorView: View {
+    @ObservedObject var store: IPAFileStore
+
+    @State private var isImporting = false
+    @State private var importError: String?
+
+    private var ipaType: UTType {
+        UTType(filenameExtension: "ipa", conformingTo: .zip) ?? .zip
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 18) {
-                Image(systemName: "doc.zipper")
-                    .font(.system(size: 54))
-                    .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("IPA Inspector")
+                            .font(.largeTitle.bold())
 
-                Text("IPA Inspector")
-                    .font(.title2.bold())
+                        Text("Import and manage your IPA packages.")
+                            .foregroundStyle(.secondary)
+                    }
 
-                Text("Import and inspect IPA packages.")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                    Button {
+                        isImporting = true
+                    } label: {
+                        Label(
+                            "Import IPA",
+                            systemImage: "square.and.arrow.down"
+                        )
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.white)
+                        .foregroundStyle(.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
 
-                Text("IPA importing and package analysis are coming soon.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Imported Files")
+                                .font(.title2.bold())
+
+                            Spacer()
+
+                            Text("\(store.files.count)")
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if store.files.isEmpty {
+                            ContentUnavailableView(
+                                "No IPA Files",
+                                systemImage: "doc.zipper",
+                                description: Text(
+                                    "Import an IPA file to get started."
+                                )
+                            )
+                            .padding(.vertical, 20)
+                        } else {
+                            ForEach(store.files) { file in
+                                IPAFileRow(
+                                    file: file,
+                                    onDelete: {
+                                        do {
+                                            try store.delete(file)
+                                        } catch {
+                                            importError = error.localizedDescription
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Inspection")
+                            .font(.title2.bold())
+
+                        Text(
+                            "Package metadata inspection will be added in the next development phase."
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+                .padding()
             }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(uiColor: .systemBackground))
             .navigationTitle("Inspector")
+            .fileImporter(
+                isPresented: $isImporting,
+                allowedContentTypes: [ipaType],
+                allowsMultipleSelection: true
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    do {
+                        try store.importFiles(urls)
+                    } catch {
+                        importError = error.localizedDescription
+                    }
+
+                case .failure(let error):
+                    importError = error.localizedDescription
+                }
+            }
+            .alert(
+                "Import Error",
+                isPresented: Binding(
+                    get: { importError != nil },
+                    set: { if !$0 { importError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    importError = nil
+                }
+            } message: {
+                Text(importError ?? "An unknown error occurred.")
+            }
         }
+    }
+}
+
+// MARK: - IPA File Row
+
+struct IPAFileRow: View {
+    let file: ImportedIPA
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.zipper")
+                .font(.title2)
+                .frame(width: 44, height: 44)
+                .background(Color(uiColor: .tertiarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(file.name)
+                    .font(.headline)
+                    .lineLimit(1)
+
+                Text(file.formattedSize)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button(role: .destructive, action: onDelete) {
+                Image(systemName: "trash")
+                    .foregroundStyle(.red)
+                    .padding(8)
+            }
+            .accessibilityLabel("Delete \(file.name)")
+        }
+        .padding()
+        .background(Color(uiColor: .secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -162,9 +306,11 @@ struct CertificatesView: View {
                 Text("Certificates")
                     .font(.title2.bold())
 
-                Text("Manage your signing certificates and provisioning profiles.")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                Text(
+                    "Manage your signing certificates and provisioning profiles."
+                )
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
 
                 Text("No certificates imported.")
                     .font(.caption)
