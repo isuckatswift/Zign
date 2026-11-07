@@ -13,8 +13,8 @@ packages:
     from: "0.9.19"
 
   swift-certificates:
-    url: https://github.com/apple/swift-certificates
-    exactVersion: "1.21.1"
+    url: https://github.com/isuckatswift/swift-certificates
+    branch: swift-crypto
 
   swift-crypto:
     url: https://github.com/apple/swift-crypto
