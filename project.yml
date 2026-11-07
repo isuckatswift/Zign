@@ -60,6 +60,8 @@ targets:
           - CMSDependencySmokeTests.swift
     dependencies:
       - target: Zign
+      - package: ZIPFoundation
+        product: ZIPFoundation
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.isuckatswift.ZignTests
