@@ -78,14 +78,7 @@ enum ProvisioningProfileParser {
             throw ProvisioningProfileError.invalidCMS
         }
 
-        // Extract metadata from certificates embedded in the CMS.
-        // This does not establish certificate trust or verify
-        // the CMS signature.
-        let certificateMetadata =
-            try ProvisioningProfileCertificateInspector.inspect(
-                data: data
-            )
-
+        // Extract and validate the CMS payload first.
         let plistData = try extractCMSContent(from: data)
 
         guard let profile = try PropertyListSerialization.propertyList(
@@ -94,6 +87,17 @@ enum ProvisioningProfileParser {
             format: nil
         ) as? [String: Any] else {
             throw ProvisioningProfileError.invalidPropertyList
+        }
+
+        // Certificate metadata is supplementary. Profiles without
+        // embedded CMS certificates can still be parsed.
+        let certificateMetadata: [ProvisioningProfileCertificateMetadata]
+
+        do {
+            certificateMetadata =
+                try ProvisioningProfileCertificateInspector.inspect(data: data)
+        } catch ProvisioningProfileCertificateInspectorError.missingCertificates {
+            certificateMetadata = []
         }
 
         let entitlements = profile["Entitlements"] as? [String: Any] ?? [:]
@@ -206,6 +210,23 @@ enum ProvisioningProfileParser {
             of: encapsulatedContentInfo,
             in: data
         )
+
+        guard
+            contentInfoChildren.count >= 1,
+            contentInfoChildren[0].tag == 0x06
+        else {
+            throw ProvisioningProfileError.invalidCMS
+        }
+
+        // CMS encapsulated content must have the data content type.
+        let dataOID = Data([
+            0x2A, 0x86, 0x48, 0x86, 0xF7,
+            0x0D, 0x01, 0x07, 0x01
+        ])
+
+        guard Data(data[contentInfoChildren[0].content]) == dataOID else {
+            throw ProvisioningProfileError.invalidCMS
+        }
 
         guard
             contentInfoChildren.count >= 2,
