@@ -16,6 +16,8 @@ struct ImportedProvisioningProfile: Identifiable {
     let platforms: [String]
     let developerCertificateCount: Int
     let certificateMetadata: [ProvisioningProfileCertificateMetadata]
+
+    var provisionedDeviceIdentifiers: [String] = []
 }
 
 enum ProvisioningProfileError: LocalizedError, Equatable {
@@ -78,7 +80,6 @@ enum ProvisioningProfileParser {
             throw ProvisioningProfileError.invalidCMS
         }
 
-        // Extract and validate the CMS payload first.
         let plistData = try extractCMSContent(from: data)
 
         guard let profile = try PropertyListSerialization.propertyList(
@@ -89,8 +90,6 @@ enum ProvisioningProfileParser {
             throw ProvisioningProfileError.invalidPropertyList
         }
 
-        // Certificate metadata is supplementary. Profiles without
-        // embedded CMS certificates can still be parsed.
         let certificateMetadata: [ProvisioningProfileCertificateMetadata]
 
         do {
@@ -120,7 +119,8 @@ enum ProvisioningProfileParser {
             getTaskAllowed: entitlements["get-task-allow"] as? Bool,
             platforms: platforms,
             developerCertificateCount: certificates.count,
-            certificateMetadata: certificateMetadata
+            certificateMetadata: certificateMetadata,
+            provisionedDeviceIdentifiers: devices
         )
     }
 
@@ -218,7 +218,6 @@ enum ProvisioningProfileParser {
             throw ProvisioningProfileError.invalidCMS
         }
 
-        // CMS encapsulated content must have the data content type.
         let dataOID = Data([
             0x2A, 0x86, 0x48, 0x86, 0xF7,
             0x0D, 0x01, 0x07, 0x01
