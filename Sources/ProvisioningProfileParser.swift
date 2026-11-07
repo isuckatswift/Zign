@@ -15,6 +15,7 @@ struct ImportedProvisioningProfile: Identifiable {
     let getTaskAllowed: Bool?
     let platforms: [String]
     let developerCertificateCount: Int
+    let developerCertificates: [Data]
     let certificateMetadata: [ProvisioningProfileCertificateMetadata]
 
     var provisionedDeviceIdentifiers: [String] = []
@@ -119,6 +120,7 @@ enum ProvisioningProfileParser {
             getTaskAllowed: entitlements["get-task-allow"] as? Bool,
             platforms: platforms,
             developerCertificateCount: certificates.count,
+            developerCertificates: certificates,
             certificateMetadata: certificateMetadata,
             provisionedDeviceIdentifiers: devices
         )
