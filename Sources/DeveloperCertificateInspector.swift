@@ -1,4 +1,3 @@
-
 import Foundation
 import CryptoKit
 import SwiftASN1
@@ -20,10 +19,11 @@ struct DeveloperCertificateInspectionReport: Sendable {
     let certificates: [DeveloperCertificateMetadata]
     let errors: [String]
     let warnings: [String]
+    let evaluatedAt: Date
 
     var usableCertificates: [DeveloperCertificateMetadata] {
         certificates.filter {
-            $0.isValid(at: Date())
+            $0.isValid(at: evaluatedAt)
         }
     }
 
@@ -81,12 +81,8 @@ enum DeveloperCertificateInspector {
 
                 metadata.append(
                     DeveloperCertificateMetadata(
-                        subjectCommonName: commonName(
-                            certificate.subject
-                        ),
-                        issuerCommonName: commonName(
-                            certificate.issuer
-                        ),
+                        subjectCommonName: commonName(certificate.subject),
+                        issuerCommonName: commonName(certificate.issuer),
                         notValidBefore: certificate.notValidBefore,
                         notValidAfter: certificate.notValidAfter,
                         sha256Fingerprint: fingerprint
@@ -123,7 +119,8 @@ enum DeveloperCertificateInspector {
         return DeveloperCertificateInspectionReport(
             certificates: metadata,
             errors: errors,
-            warnings: warnings
+            warnings: warnings,
+            evaluatedAt: now
         )
     }
 
