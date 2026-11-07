@@ -116,8 +116,14 @@ enum ProvisioningProfileCertificateInspector {
 
         let certificateSet = signedDataChildren[3]
 
-        if signedDataChildren.count > 5 ||
-           (signedDataChildren.count == 5 &&
+        // CRLs are optional. SignedData may contain:
+        // version, digestAlgorithms, encapContentInfo,
+        // certificates, signerInfos
+        // or:
+        // version, digestAlgorithms, encapContentInfo,
+        // certificates, crls, signerInfos
+        if signedDataChildren.count > 6 ||
+           (signedDataChildren.count == 6 &&
             signedDataChildren[4].tag != 0xA1) {
             throw ProvisioningProfileCertificateInspectorError.invalidCMS
         }
