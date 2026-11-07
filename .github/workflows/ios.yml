@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-      - experiment/swift-certificates-cms
+      - stable
+      - nightly
     paths:
       - "Sources/**"
       - "Tests/**"
