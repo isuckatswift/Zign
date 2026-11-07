@@ -1,4 +1,3 @@
-
 import XCTest
 import Foundation
 @testable import Zign
