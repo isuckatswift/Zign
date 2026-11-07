@@ -15,6 +15,7 @@ struct ImportedProvisioningProfile: Identifiable {
     let getTaskAllowed: Bool?
     let platforms: [String]
     let developerCertificateCount: Int
+    let certificateMetadata: [ProvisioningProfileCertificateMetadata]
 }
 
 enum ProvisioningProfileError: LocalizedError, Equatable {
@@ -77,6 +78,14 @@ enum ProvisioningProfileParser {
             throw ProvisioningProfileError.invalidCMS
         }
 
+        // Extract metadata from certificates embedded in the CMS.
+        // This does not establish certificate trust or verify
+        // the CMS signature.
+        let certificateMetadata =
+            try ProvisioningProfileCertificateInspector.inspect(
+                data: data
+            )
+
         let plistData = try extractCMSContent(from: data)
 
         guard let profile = try PropertyListSerialization.propertyList(
@@ -95,7 +104,8 @@ enum ProvisioningProfileParser {
 
         return ImportedProvisioningProfile(
             filename: url.lastPathComponent,
-            name: profile["Name"] as? String ?? url.deletingPathExtension().lastPathComponent,
+            name: profile["Name"] as? String
+                ?? url.deletingPathExtension().lastPathComponent,
             uuid: profile["UUID"] as? String ?? "Unknown UUID",
             teamIdentifier: teams.first,
             applicationIdentifier: entitlements["application-identifier"] as? String,
@@ -105,7 +115,8 @@ enum ProvisioningProfileParser {
             isAllDevices: profile["ProvisionsAllDevices"] as? Bool ?? false,
             getTaskAllowed: entitlements["get-task-allow"] as? Bool,
             platforms: platforms,
-            developerCertificateCount: certificates.count
+            developerCertificateCount: certificates.count,
+            certificateMetadata: certificateMetadata
         )
     }
 
