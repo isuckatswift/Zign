@@ -12,7 +12,7 @@ struct ProvisioningProfileCertificateMetadata {
     let sha256Fingerprint: String
 }
 
-enum ProvisioningProfileCertificateInspectorError: LocalizedError {
+enum ProvisioningProfileCertificateInspectorError: LocalizedError, Equatable {
     case fileTooLarge
     case invalidCMS
     case missingCertificates
@@ -55,8 +55,11 @@ enum ProvisioningProfileCertificateInspector {
         data: Data
     ) throws -> [ProvisioningProfileCertificateMetadata] {
 
-        guard !data.isEmpty,
-              data.count <= maximumFileSize else {
+        guard !data.isEmpty else {
+            throw ProvisioningProfileCertificateInspectorError.invalidCMS
+        }
+
+        guard data.count <= maximumFileSize else {
             throw ProvisioningProfileCertificateInspectorError.fileTooLarge
         }
 
@@ -75,7 +78,7 @@ enum ProvisioningProfileCertificateInspector {
 
         let rootChildren = try children(of: root, in: data)
 
-        guard rootChildren.count >= 2,
+        guard rootChildren.count == 2,
               rootChildren[0].tag == 0x06,
               Data(data[rootChildren[0].content]) == signedDataOID,
               rootChildren[1].tag == 0xA0 else {
@@ -87,7 +90,8 @@ enum ProvisioningProfileCertificateInspector {
             in: data
         )
 
-        guard let signedData = explicitChildren.first,
+        guard explicitChildren.count == 1,
+              let signedData = explicitChildren.first,
               signedData.tag == 0x30 else {
             throw ProvisioningProfileCertificateInspectorError.invalidCMS
         }
@@ -97,10 +101,25 @@ enum ProvisioningProfileCertificateInspector {
             in: data
         )
 
-        guard let certificateSet = signedDataChildren.first(where: {
-            $0.tag == 0xA0
-        }) else {
+        guard signedDataChildren.count >= 4,
+              signedDataChildren[0].tag == 0x02,
+              signedDataChildren[1].tag == 0x31,
+              signedDataChildren[2].tag == 0x30,
+              signedDataChildren.last?.tag == 0x31 else {
+            throw ProvisioningProfileCertificateInspectorError.invalidCMS
+        }
+
+        guard signedDataChildren.count > 4,
+              signedDataChildren[3].tag == 0xA0 else {
             throw ProvisioningProfileCertificateInspectorError.missingCertificates
+        }
+
+        let certificateSet = signedDataChildren[3]
+
+        if signedDataChildren.count > 5 ||
+           (signedDataChildren.count == 5 &&
+            signedDataChildren[4].tag != 0xA1) {
+            throw ProvisioningProfileCertificateInspectorError.invalidCMS
         }
 
         let certificateElements = try children(
@@ -117,7 +136,7 @@ enum ProvisioningProfileCertificateInspector {
 
         for element in certificateElements {
             guard element.tag == 0x30 else {
-                continue
+                throw ProvisioningProfileCertificateInspectorError.invalidCertificate
             }
 
             let certificateDER = Data(data[element.encoded])
