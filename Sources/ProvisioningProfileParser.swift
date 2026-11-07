@@ -16,6 +16,8 @@ struct ImportedProvisioningProfile: Identifiable {
     let platforms: [String]
     let developerCertificateCount: Int
     let certificateMetadata: [ProvisioningProfileCertificateMetadata]
+
+    var provisionedDeviceIdentifiers: [String] = []
 }
 
 enum ProvisioningProfileError: LocalizedError, Equatable {
@@ -78,14 +80,6 @@ enum ProvisioningProfileParser {
             throw ProvisioningProfileError.invalidCMS
         }
 
-        // Extract metadata from certificates embedded in the CMS.
-        // This does not establish certificate trust or verify
-        // the CMS signature.
-        let certificateMetadata =
-            try ProvisioningProfileCertificateInspector.inspect(
-                data: data
-            )
-
         let plistData = try extractCMSContent(from: data)
 
         guard let profile = try PropertyListSerialization.propertyList(
@@ -94,6 +88,15 @@ enum ProvisioningProfileParser {
             format: nil
         ) as? [String: Any] else {
             throw ProvisioningProfileError.invalidPropertyList
+        }
+
+        let certificateMetadata: [ProvisioningProfileCertificateMetadata]
+
+        do {
+            certificateMetadata =
+                try ProvisioningProfileCertificateInspector.inspect(data: data)
+        } catch ProvisioningProfileCertificateInspectorError.missingCertificates {
+            certificateMetadata = []
         }
 
         let entitlements = profile["Entitlements"] as? [String: Any] ?? [:]
@@ -116,7 +119,8 @@ enum ProvisioningProfileParser {
             getTaskAllowed: entitlements["get-task-allow"] as? Bool,
             platforms: platforms,
             developerCertificateCount: certificates.count,
-            certificateMetadata: certificateMetadata
+            certificateMetadata: certificateMetadata,
+            provisionedDeviceIdentifiers: devices
         )
     }
 
@@ -206,6 +210,22 @@ enum ProvisioningProfileParser {
             of: encapsulatedContentInfo,
             in: data
         )
+
+        guard
+            contentInfoChildren.count >= 1,
+            contentInfoChildren[0].tag == 0x06
+        else {
+            throw ProvisioningProfileError.invalidCMS
+        }
+
+        let dataOID = Data([
+            0x2A, 0x86, 0x48, 0x86, 0xF7,
+            0x0D, 0x01, 0x07, 0x01
+        ])
+
+        guard Data(data[contentInfoChildren[0].content]) == dataOID else {
+            throw ProvisioningProfileError.invalidCMS
+        }
 
         guard
             contentInfoChildren.count >= 2,
