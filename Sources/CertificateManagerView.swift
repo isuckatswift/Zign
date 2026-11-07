@@ -121,56 +121,53 @@ struct CertificateManagerView: View {
         }
     }
 
-    // MARK: - Certificates
     // MARK: - Failed Profile Loading
 
-private var failedProfileSection: some View {
-    Group {
-        if !profileStore.failedProfiles.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Label(
-                    "Profiles Could Not Be Loaded",
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.headline)
-                .foregroundStyle(.orange)
+    private var failedProfileSection: some View {
+        Group {
+            if !profileStore.failedProfiles.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label(
+                        "Profiles Could Not Be Loaded",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.headline)
+                    .foregroundStyle(.orange)
 
-                Text(
-                    "\(profileStore.failedProfiles.count) saved profile(s) could not be loaded. Other valid profiles remain available."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                    Text(
+                        "\(profileStore.failedProfiles.count) saved profile(s) could not be loaded. Other valid profiles remain available."
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
-                ForEach(
-                    Array(profileStore.failedProfiles.enumerated()),
-                    id: \.offset
-                ) { _, failure in
-                    Text(failure)
-                        .font(.caption)
-                        .textSelection(.enabled)
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: .leading
-                        )
-                        .padding(10)
-                        .background(
-                            Color(uiColor: .tertiarySystemBackground)
-                        )
-                        .clipShape(
-                            RoundedRectangle(cornerRadius: 10)
-                        )
+                    ForEach(
+                        Array(profileStore.failedProfiles.enumerated()),
+                        id: \.offset
+                    ) { _, failure in
+                        Text(failure)
+                            .font(.caption)
+                            .textSelection(.enabled)
+                            .frame(
+                                maxWidth: .infinity,
+                                alignment: .leading
+                            )
+                            .padding(10)
+                            .background(
+                                Color(uiColor: .tertiarySystemBackground)
+                            )
+                            .clipShape(
+                                RoundedRectangle(cornerRadius: 10)
+                            )
+                    }
                 }
+                .padding()
+                .background(Color.orange.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
-            .padding()
-            .background(
-                Color.orange.opacity(0.08)
-            )
-            .clipShape(
-                RoundedRectangle(cornerRadius: 14)
-            )
         }
     }
-}
+
+    // MARK: - Certificates
 
     private var certificateSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -328,7 +325,56 @@ private var failedProfileSection: some View {
                 } ?? "Unavailable"
             )
 
-            Text("Metadata extracted only — CMS signature not verified.")
+            Divider()
+
+            Text("Embedded Certificates")
+                .font(.headline)
+
+            if profile.certificateMetadata.isEmpty {
+                Text("No embedded certificates found.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(
+                    Array(profile.certificateMetadata.enumerated()),
+                    id: \.offset
+                ) { index, certificate in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Certificate \(index + 1)")
+                            .font(.subheadline.bold())
+
+                        profileDetail(
+                            "Subject",
+                            value: certificate.subjectCommonName ?? "Unavailable"
+                        )
+
+                        profileDetail(
+                            "Issuer",
+                            value: certificate.issuerCommonName ?? "Unavailable"
+                        )
+
+                        profileDetail(
+                            "Valid from",
+                            value: formattedDate(certificate.notValidBefore)
+                        )
+
+                        profileDetail(
+                            "Valid until",
+                            value: formattedDate(certificate.notValidAfter)
+                        )
+
+                        profileDetail(
+                            "SHA-256 fingerprint",
+                            value: certificate.sha256Fingerprint
+                        )
+                    }
+                    .padding()
+                    .background(Color(uiColor: .tertiarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+
+            Text("Certificate metadata extracted only. CMS signature and certificate trust have not been verified.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
