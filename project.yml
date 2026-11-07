@@ -1,3 +1,4 @@
+
 name: Zign
 
 options:
@@ -43,10 +44,6 @@ targets:
         product: ZIPFoundation
       - package: swift-certificates
         product: X509
-      - package: swift-crypto
-        product: Crypto
-      - package: swift-crypto
-        product: _CryptoExtras
       - package: swift-asn1
         product: SwiftASN1
     settings:
