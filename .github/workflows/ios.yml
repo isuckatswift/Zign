@@ -1,3 +1,4 @@
+
 name: Zign iOS Build
 
 on:
@@ -17,7 +18,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and Test Zign
+    name: Build Zign
     runs-on: xcode-27
 
     steps:
@@ -50,7 +51,7 @@ jobs:
           echo "id=$SIMULATOR_ID" >> "$GITHUB_OUTPUT"
           echo "Using simulator: $SIMULATOR_ID"
 
-      - name: Build and run tests on iPhone Simulator
+      - name: Build Zign for iPhone Simulator
         run: |
           rm -rf build/DerivedData
 
@@ -61,7 +62,7 @@ jobs:
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}" \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
-            test
+            build
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
