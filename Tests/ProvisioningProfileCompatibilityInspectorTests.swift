@@ -1,3 +1,4 @@
+
 import XCTest
 import Foundation
 @testable import Zign
@@ -288,8 +289,8 @@ final class ProvisioningProfileCompatibilityInspectorTests: XCTestCase {
     func testAllDeviceProfileProducesWarningWithoutBlockingCompatibility() {
         let ipa = makeIPA(bundleIdentifier: "com.example.app")
         let profile = makeProfile(
-            isAllDevices: true,
-            deviceCount: 0
+            deviceCount: 0,
+            isAllDevices: true
         )
 
         let result = inspect(ipa: ipa, profile: profile)
@@ -305,8 +306,8 @@ final class ProvisioningProfileCompatibilityInspectorTests: XCTestCase {
     func testEmptyLimitedDeviceListProducesWarning() {
         let ipa = makeIPA(bundleIdentifier: "com.example.app")
         let profile = makeProfile(
-            isAllDevices: false,
-            deviceCount: 0
+            deviceCount: 0,
+            isAllDevices: false
         )
 
         let result = inspect(ipa: ipa, profile: profile)
