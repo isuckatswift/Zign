@@ -9,8 +9,6 @@ final class SigningReadinessInspectorTests: XCTestCase {
         timeIntervalSince1970: 1_800_000_000
     )
 
-    // MARK: - Successful readiness
-
     func testRegisteredDeviceAndCompatibleProfileAreReady() {
         let ipa = makeIPA()
         let profile = makeProfile(
@@ -32,12 +30,8 @@ final class SigningReadinessInspectorTests: XCTestCase {
         )
     }
 
-    // MARK: - Bundle identifier
-
     func testBundleIdentifierMismatchBlocksReadiness() {
-        let ipa = makeIPA(
-            bundleIdentifier: "com.example.other"
-        )
+        let ipa = makeIPA(bundleIdentifier: "com.example.other")
         let profile = makeProfile()
 
         let result = inspect(
@@ -48,14 +42,10 @@ final class SigningReadinessInspectorTests: XCTestCase {
 
         XCTAssertFalse(result.isReadyForSigning)
         XCTAssertEqual(result.status, "Not ready for signing")
-        XCTAssertTrue(
-            result.errors.contains {
-                $0.contains("bundle identifier does not match")
-            }
-        )
+        XCTAssertTrue(result.errors.contains {
+            $0.contains("bundle identifier does not match")
+        })
     }
-
-    // MARK: - Device registration
 
     func testUnregisteredDeviceBlocksReadiness() {
         let ipa = makeIPA()
@@ -70,11 +60,9 @@ final class SigningReadinessInspectorTests: XCTestCase {
         )
 
         XCTAssertFalse(result.isReadyForSigning)
-        XCTAssertTrue(
-            result.errors.contains {
-                $0.contains("target device is not registered")
-            }
-        )
+        XCTAssertTrue(result.errors.contains {
+            $0.contains("target device is not registered")
+        })
     }
 
     func testMissingTargetDeviceProducesWarningsButRemainsReady() {
@@ -92,12 +80,8 @@ final class SigningReadinessInspectorTests: XCTestCase {
         XCTAssertTrue(result.isReadyForSigning)
         XCTAssertTrue(result.errors.isEmpty)
         XCTAssertFalse(result.warnings.isEmpty)
-        XCTAssertNil(
-            result.deviceCompatibility.matchedDeviceIdentifier
-        )
+        XCTAssertNil(result.deviceCompatibility.matchedDeviceIdentifier)
     }
-
-    // MARK: - Profile expiration
 
     func testExpiredProfileBlocksReadiness() {
         let ipa = makeIPA()
@@ -113,14 +97,10 @@ final class SigningReadinessInspectorTests: XCTestCase {
         )
 
         XCTAssertFalse(result.isReadyForSigning)
-        XCTAssertTrue(
-            result.errors.contains {
-                $0.contains("provisioning profile has expired")
-            }
-        )
+        XCTAssertTrue(result.errors.contains {
+            $0.contains("provisioning profile has expired")
+        })
     }
-
-    // MARK: - Platform compatibility
 
     func testNonIOSProfileBlocksReadiness() {
         let ipa = makeIPA()
@@ -136,14 +116,10 @@ final class SigningReadinessInspectorTests: XCTestCase {
         )
 
         XCTAssertFalse(result.isReadyForSigning)
-        XCTAssertTrue(
-            result.errors.contains {
-                $0.contains("does not declare support for iOS")
-            }
-        )
+        XCTAssertTrue(result.errors.contains {
+            $0.contains("does not declare support for iOS")
+        })
     }
-
-    // MARK: - All-device profiles
 
     func testAllDeviceProfileCanBeReadyWithWarning() {
         let ipa = makeIPA()
@@ -160,14 +136,10 @@ final class SigningReadinessInspectorTests: XCTestCase {
 
         XCTAssertTrue(result.isReadyForSigning)
         XCTAssertTrue(result.errors.isEmpty)
-        XCTAssertTrue(
-            result.warnings.contains {
-                $0.contains("all-device profile")
-            }
-        )
+        XCTAssertTrue(result.warnings.contains {
+            $0.contains("all-device profile")
+        })
     }
-
-    // MARK: - Report consistency
 
     func testCombinedWarningsContainNoExactDuplicates() {
         let ipa = makeIPA()
@@ -187,14 +159,11 @@ final class SigningReadinessInspectorTests: XCTestCase {
         )
     }
 
-    // MARK: - Helpers
-
     private func inspect(
         ipa: IPAInspection,
         profile: ImportedProvisioningProfile,
         target: String?
     ) -> SigningReadinessReport {
-
         SigningReadinessInspector.inspect(
             ipa: ipa,
             profile: profile,
@@ -206,7 +175,6 @@ final class SigningReadinessInspectorTests: XCTestCase {
     private func makeIPA(
         bundleIdentifier: String = "com.example.app"
     ) -> IPAInspection {
-
         IPAInspection(
             appName: "Zign Test App",
             bundleIdentifier: bundleIdentifier,
@@ -225,7 +193,6 @@ final class SigningReadinessInspectorTests: XCTestCase {
         isAllDevices: Bool = false,
         deviceIdentifiers: [String] = ["DEVICE-UDID-1"]
     ) -> ImportedProvisioningProfile {
-
         ImportedProvisioningProfile(
             filename: "Zign-Test.mobileprovision",
             name: "Zign Test Profile",
@@ -240,7 +207,8 @@ final class SigningReadinessInspectorTests: XCTestCase {
             isAllDevices: isAllDevices,
             getTaskAllowed: true,
             platforms: platforms,
-            developerCertificateCount: 1,
+            developerCertificateCount: 0,
+            developerCertificates: [],
             certificateMetadata: [],
             provisionedDeviceIdentifiers: deviceIdentifiers
         )
