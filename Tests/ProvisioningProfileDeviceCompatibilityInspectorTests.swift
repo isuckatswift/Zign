@@ -10,10 +10,7 @@ final class ProvisioningProfileDeviceCompatibilityInspectorTests: XCTestCase {
             deviceIdentifiers: ["DEVICE-ONE", "DEVICE-TWO"]
         )
 
-        let result = inspect(
-            profile: profile,
-            target: "DEVICE-ONE"
-        )
+        let result = inspect(profile: profile, target: "DEVICE-ONE")
 
         XCTAssertTrue(result.isCompatible)
         XCTAssertTrue(result.errors.isEmpty)
@@ -25,102 +22,60 @@ final class ProvisioningProfileDeviceCompatibilityInspectorTests: XCTestCase {
             deviceIdentifiers: ["DEVICE-ONE", "DEVICE-TWO"]
         )
 
-        let result = inspect(
-            profile: profile,
-            target: "DEVICE-THREE"
-        )
+        let result = inspect(profile: profile, target: "DEVICE-THREE")
 
         XCTAssertFalse(result.isCompatible)
-        XCTAssertTrue(
-            result.errors.contains {
-                $0.contains("not registered")
-            }
-        )
+        XCTAssertTrue(result.errors.contains {
+            $0.contains("not registered")
+        })
         XCTAssertNil(result.matchedDeviceIdentifier)
     }
 
     func testDeviceIdentifierMatchingIsCaseInsensitive() {
-        let profile = makeProfile(
-            deviceIdentifiers: ["abcdef123456"]
-        )
-
-        let result = inspect(
-            profile: profile,
-            target: "ABCDEF123456"
-        )
+        let profile = makeProfile(deviceIdentifiers: ["abcdef123456"])
+        let result = inspect(profile: profile, target: "ABCDEF123456")
 
         XCTAssertTrue(result.isCompatible)
-        XCTAssertEqual(
-            result.matchedDeviceIdentifier,
-            "ABCDEF123456"
-        )
+        XCTAssertEqual(result.matchedDeviceIdentifier, "ABCDEF123456")
     }
 
     func testDeviceIdentifierMatchingTrimsWhitespace() {
-        let profile = makeProfile(
-            deviceIdentifiers: [" DEVICE-ONE "]
-        )
-
-        let result = inspect(
-            profile: profile,
-            target: "DEVICE-ONE"
-        )
+        let profile = makeProfile(deviceIdentifiers: [" DEVICE-ONE "])
+        let result = inspect(profile: profile, target: "DEVICE-ONE")
 
         XCTAssertTrue(result.isCompatible)
     }
 
     func testMissingTargetProducesWarningInsteadOfClaimingMatch() {
-        let profile = makeProfile(
-            deviceIdentifiers: ["DEVICE-ONE"]
-        )
-
-        let result = inspect(
-            profile: profile,
-            target: nil
-        )
+        let profile = makeProfile(deviceIdentifiers: ["DEVICE-ONE"])
+        let result = inspect(profile: profile, target: nil)
 
         XCTAssertTrue(result.isCompatible)
         XCTAssertNil(result.matchedDeviceIdentifier)
-        XCTAssertTrue(
-            result.warnings.contains {
-                $0.contains("target device identifier was not supplied")
-            }
-        )
+        XCTAssertTrue(result.warnings.contains {
+            $0.contains("target device identifier was not supplied")
+        })
     }
 
     func testEmptyTargetProducesWarning() {
-        let profile = makeProfile(
-            deviceIdentifiers: ["DEVICE-ONE"]
-        )
-
-        let result = inspect(
-            profile: profile,
-            target: "   "
-        )
+        let profile = makeProfile(deviceIdentifiers: ["DEVICE-ONE"])
+        let result = inspect(profile: profile, target: "   ")
 
         XCTAssertTrue(result.isCompatible)
         XCTAssertNil(result.matchedDeviceIdentifier)
-        XCTAssertTrue(
-            result.warnings.contains {
-                $0.contains("identifier is empty")
-            }
-        )
+        XCTAssertTrue(result.warnings.contains {
+            $0.contains("identifier is empty")
+        })
     }
 
     func testRejectsLimitedProfileWithoutRegisteredDevices() {
         let profile = makeProfile(deviceIdentifiers: [])
-
-        let result = inspect(
-            profile: profile,
-            target: "DEVICE-ONE"
-        )
+        let result = inspect(profile: profile, target: "DEVICE-ONE")
 
         XCTAssertFalse(result.isCompatible)
-        XCTAssertTrue(
-            result.errors.contains {
-                $0.contains("contains no registered device identifiers")
-            }
-        )
+        XCTAssertTrue(result.errors.contains {
+            $0.contains("contains no registered device identifiers")
+        })
     }
 
     func testAllDeviceProfileDoesNotRequireTargetIdentifier() {
@@ -128,19 +83,13 @@ final class ProvisioningProfileDeviceCompatibilityInspectorTests: XCTestCase {
             deviceIdentifiers: [],
             isAllDevices: true
         )
-
-        let result = inspect(
-            profile: profile,
-            target: nil
-        )
+        let result = inspect(profile: profile, target: nil)
 
         XCTAssertTrue(result.isCompatible)
         XCTAssertNil(result.matchedDeviceIdentifier)
-        XCTAssertTrue(
-            result.warnings.contains {
-                $0.contains("all-device profile")
-            }
-        )
+        XCTAssertTrue(result.warnings.contains {
+            $0.contains("all-device profile")
+        })
     }
 
     func testAllDeviceProfileDoesNotRequireDeviceList() {
@@ -148,23 +97,16 @@ final class ProvisioningProfileDeviceCompatibilityInspectorTests: XCTestCase {
             deviceIdentifiers: ["DEVICE-ONE"],
             isAllDevices: true
         )
-
-        let result = inspect(
-            profile: profile,
-            target: "DEVICE-TWO"
-        )
+        let result = inspect(profile: profile, target: "DEVICE-TWO")
 
         XCTAssertTrue(result.isCompatible)
         XCTAssertNil(result.matchedDeviceIdentifier)
     }
 
-    // MARK: - Helpers
-
     private func inspect(
         profile: ImportedProvisioningProfile,
         target: String?
     ) -> ProvisioningProfileDeviceCompatibilityReport {
-
         ProvisioningProfileDeviceCompatibilityInspector.inspect(
             profile: profile,
             targetDeviceIdentifier: target
@@ -175,7 +117,6 @@ final class ProvisioningProfileDeviceCompatibilityInspectorTests: XCTestCase {
         deviceIdentifiers: [String],
         isAllDevices: Bool = false
     ) -> ImportedProvisioningProfile {
-
         ImportedProvisioningProfile(
             filename: "Zign-Test.mobileprovision",
             name: "Zign Test Profile",
@@ -188,7 +129,8 @@ final class ProvisioningProfileDeviceCompatibilityInspectorTests: XCTestCase {
             isAllDevices: isAllDevices,
             getTaskAllowed: true,
             platforms: ["iOS"],
-            developerCertificateCount: 1,
+            developerCertificateCount: 0,
+            developerCertificates: [],
             certificateMetadata: [],
             provisionedDeviceIdentifiers: deviceIdentifiers
         )
