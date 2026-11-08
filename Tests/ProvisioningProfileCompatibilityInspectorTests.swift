@@ -1,138 +1,182 @@
 
 import XCTest
-import Foundation
 @testable import Zign
 
-final class ProvisioningProfileDeviceCompatibilityInspectorTests: XCTestCase {
+final class ProvisioningProfileCompatibilityInspectorTests: XCTestCase {
 
-    func testAcceptsRegisteredDevice() {
-        let profile = makeProfile(
-            deviceIdentifiers: ["DEVICE-ONE", "DEVICE-TWO"]
+    private let evaluationDate = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func testAcceptsMatchingBundleIdentifier() {
+        let report = inspect()
+
+        XCTAssertTrue(report.isCompatible)
+        XCTAssertTrue(report.errors.isEmpty)
+    }
+
+    func testAcceptsSupportedWildcardBundleIdentifier() {
+        let report = inspect(
+            applicationIdentifier: "TEAM123456.com.example.*"
         )
 
-        let result = inspect(profile: profile, target: "DEVICE-ONE")
-
-        XCTAssertTrue(result.isCompatible)
-        XCTAssertTrue(result.errors.isEmpty)
-        XCTAssertEqual(result.matchedDeviceIdentifier, "DEVICE-ONE")
+        XCTAssertTrue(report.isCompatible)
     }
 
-    func testRejectsUnregisteredDevice() {
-        let profile = makeProfile(
-            deviceIdentifiers: ["DEVICE-ONE", "DEVICE-TWO"]
+    func testRejectsMismatchedBundleIdentifier() {
+        let report = inspect(
+            applicationIdentifier: "TEAM123456.com.other.app"
         )
 
-        let result = inspect(profile: profile, target: "DEVICE-THREE")
-
-        XCTAssertFalse(result.isCompatible)
-        XCTAssertTrue(result.errors.contains {
-            $0.contains("not registered")
-        })
-        XCTAssertNil(result.matchedDeviceIdentifier)
+        XCTAssertFalse(report.isCompatible)
+        XCTAssertTrue(
+            report.errors.contains {
+                $0.localizedCaseInsensitiveContains("does not match")
+            }
+        )
     }
 
-    func testDeviceIdentifierMatchingIsCaseInsensitive() {
-        let profile = makeProfile(deviceIdentifiers: ["abcdef123456"])
-        let result = inspect(profile: profile, target: "ABCDEF123456")
+    func testRejectsEmptyIPABundleIdentifier() {
+        let report = inspect(
+            ipaBundleIdentifier: ""
+        )
 
-        XCTAssertTrue(result.isCompatible)
-        XCTAssertEqual(result.matchedDeviceIdentifier, "ABCDEF123456")
+        XCTAssertFalse(report.isCompatible)
     }
 
-    func testDeviceIdentifierMatchingTrimsWhitespace() {
-        let profile = makeProfile(deviceIdentifiers: [" DEVICE-ONE "])
-        let result = inspect(profile: profile, target: "DEVICE-ONE")
+    func testRejectsMissingApplicationIdentifier() {
+        let report = inspect(
+            applicationIdentifier: nil
+        )
 
-        XCTAssertTrue(result.isCompatible)
+        XCTAssertFalse(report.isCompatible)
     }
 
-    func testMissingTargetProducesWarningInsteadOfClaimingMatch() {
-        let profile = makeProfile(deviceIdentifiers: ["DEVICE-ONE"])
-        let result = inspect(profile: profile, target: nil)
+    func testRejectsMalformedApplicationIdentifier() {
+        let report = inspect(
+            applicationIdentifier: "com.example.app"
+        )
 
-        XCTAssertTrue(result.isCompatible)
-        XCTAssertNil(result.matchedDeviceIdentifier)
-        XCTAssertTrue(result.warnings.contains {
-            $0.contains("target device identifier was not supplied")
-        })
+        XCTAssertFalse(report.isCompatible)
     }
 
-    func testEmptyTargetProducesWarning() {
-        let profile = makeProfile(deviceIdentifiers: ["DEVICE-ONE"])
-        let result = inspect(profile: profile, target: "   ")
+    func testRejectsMissingTeamIdentifier() {
+        let report = inspect(
+            teamIdentifier: nil
+        )
 
-        XCTAssertTrue(result.isCompatible)
-        XCTAssertNil(result.matchedDeviceIdentifier)
-        XCTAssertTrue(result.warnings.contains {
-            $0.contains("identifier is empty")
-        })
+        XCTAssertFalse(report.isCompatible)
     }
 
-    func testRejectsLimitedProfileWithoutRegisteredDevices() {
-        let profile = makeProfile(deviceIdentifiers: [])
-        let result = inspect(profile: profile, target: "DEVICE-ONE")
+    func testRejectsMismatchedTeamIdentifier() {
+        let report = inspect(
+            teamIdentifier: "OTHERTEAM12"
+        )
 
-        XCTAssertFalse(result.isCompatible)
-        XCTAssertTrue(result.errors.contains {
-            $0.contains("contains no registered device identifiers")
-        })
+        XCTAssertFalse(report.isCompatible)
     }
 
-    func testAllDeviceProfileDoesNotRequireTargetIdentifier() {
-        let profile = makeProfile(
-            deviceIdentifiers: [],
+    func testRejectsExpiredProfile() {
+        let report = inspect(
+            expirationDate: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        XCTAssertFalse(report.isCompatible)
+        XCTAssertTrue(
+            report.errors.contains {
+                $0.localizedCaseInsensitiveContains("expired")
+            }
+        )
+    }
+
+    func testRejectsMissingExpirationDate() {
+        let report = inspect(
+            expirationDate: nil
+        )
+
+        XCTAssertFalse(report.isCompatible)
+    }
+
+    func testRejectsProfileWithoutIOSPlatform() {
+        let report = inspect(
+            platforms: ["macOS"]
+        )
+
+        XCTAssertFalse(report.isCompatible)
+        XCTAssertTrue(
+            report.errors.contains {
+                $0.localizedCaseInsensitiveContains(
+                    "does not declare support for iOS"
+                )
+            }
+        )
+    }
+
+    func testAllDeviceProfileProducesWarning() {
+        let report = inspect(
             isAllDevices: true
         )
-        let result = inspect(profile: profile, target: nil)
 
-        XCTAssertTrue(result.isCompatible)
-        XCTAssertNil(result.matchedDeviceIdentifier)
-        XCTAssertTrue(result.warnings.contains {
-            $0.contains("all-device profile")
-        })
+        XCTAssertTrue(report.isCompatible)
+        XCTAssertFalse(report.warnings.isEmpty)
     }
 
-    func testAllDeviceProfileDoesNotRequireDeviceList() {
-        let profile = makeProfile(
-            deviceIdentifiers: ["DEVICE-ONE"],
-            isAllDevices: true
+    func testReportWarnsThatSignatureWasNotCryptographicallyVerified() {
+        let report = inspect()
+
+        XCTAssertTrue(
+            report.warnings.contains {
+                $0.localizedCaseInsensitiveContains(
+                    "cryptographically verified"
+                )
+            }
         )
-        let result = inspect(profile: profile, target: "DEVICE-TWO")
-
-        XCTAssertTrue(result.isCompatible)
-        XCTAssertNil(result.matchedDeviceIdentifier)
     }
+
+    // MARK: - Test Helpers
 
     private func inspect(
-        profile: ImportedProvisioningProfile,
-        target: String?
-    ) -> ProvisioningProfileDeviceCompatibilityReport {
-        ProvisioningProfileDeviceCompatibilityInspector.inspect(
-            profile: profile,
-            targetDeviceIdentifier: target
-        )
-    }
-
-    private func makeProfile(
-        deviceIdentifiers: [String],
+        ipaBundleIdentifier: String = "com.example.app",
+        teamIdentifier: String? = "TEAM123456",
+        applicationIdentifier: String? = "TEAM123456.com.example.app",
+        expirationDate: Date? = Date(
+            timeIntervalSince1970: 1_900_000_000
+        ),
+        platforms: [String] = ["iOS"],
         isAllDevices: Bool = false
-    ) -> ImportedProvisioningProfile {
-        ImportedProvisioningProfile(
+    ) -> ProvisioningProfileCompatibilityReport {
+
+        let ipa = IPAInspection(
+            appName: "Zign Test App",
+            bundleIdentifier: ipaBundleIdentifier,
+            version: "1.0",
+            buildNumber: "1",
+            minimumiOSVersion: "15.0",
+            iconName: nil
+        )
+
+        let profile = ImportedProvisioningProfile(
             filename: "Zign-Test.mobileprovision",
             name: "Zign Test Profile",
             uuid: "TEST-UUID-1234",
-            teamIdentifier: "TEAM123456",
-            applicationIdentifier: "TEAM123456.com.example.app",
-            creationDate: Date(timeIntervalSince1970: 1_700_000_000),
-            expirationDate: Date(timeIntervalSince1970: 1_900_000_000),
-            deviceCount: deviceIdentifiers.count,
+            teamIdentifier: teamIdentifier,
+            applicationIdentifier: applicationIdentifier,
+            creationDate: Date(
+                timeIntervalSince1970: 1_700_000_000
+            ),
+            expirationDate: expirationDate,
+            deviceCount: 1,
             isAllDevices: isAllDevices,
             getTaskAllowed: true,
-            platforms: ["iOS"],
+            platforms: platforms,
             developerCertificateCount: 0,
             developerCertificates: [],
             certificateMetadata: [],
-            provisionedDeviceIdentifiers: deviceIdentifiers
+            provisionedDeviceIdentifiers: ["DEVICE-ONE"]
+        )
+
+        return ProvisioningProfileCompatibilityInspector.inspect(
+            ipa: ipa,
+            profile: profile,
+            now: evaluationDate
         )
     }
 }
